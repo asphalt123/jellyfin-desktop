@@ -500,11 +500,11 @@ void SystemComponent::openExternalUrl(const QString& url)
 ///////////////////////////////////////////////////////////////////////////////////////
 void SystemComponent::openVideoInExternalPlayer(const QString& url, const QVariantMap& metadata)
 {
-  QLOG_INFO() << "Opening video in external player:" << url;
+  qInfo() << "Opening video in external player:" << url;
   
   // Extract title from metadata for logging
   QString title = metadata.value("title", "Unknown").toString();
-  QLOG_INFO() << "Video title:" << title;
+  qInfo() << "Video title:" << title;
   
   // Use QDesktopServices to open the URL in the system's default video player
   // On Windows: Opens with the default handler for video URLs
@@ -513,7 +513,7 @@ void SystemComponent::openVideoInExternalPlayer(const QString& url, const QVaria
   bool success = QDesktopServices::openUrl(QUrl(url));
   
   if (!success) {
-    QLOG_ERROR() << "Failed to open video in external player";
+    qCritical() << "Failed to open video in external player";
   }
 }
 
