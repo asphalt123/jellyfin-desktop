@@ -497,7 +497,27 @@ void SystemComponent::openExternalUrl(const QString& url)
   QDesktopServices::openUrl(QUrl(url));
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+void SystemComponent::openVideoInExternalPlayer(const QString& url, const QVariantMap& metadata)
+{
+  QLOG_INFO() << "Opening video in external player:" << url;
+  
+  // Extract title from metadata for logging
+  QString title = metadata.value("title", "Unknown").toString();
+  QLOG_INFO() << "Video title:" << title;
+  
+  // Use QDesktopServices to open the URL in the system's default video player
+  // On Windows: Opens with the default handler for video URLs
+  // On Linux: Uses xdg-open which respects .desktop file associations
+  // On macOS: Uses the default video application
+  bool success = QDesktopServices::openUrl(QUrl(url));
+  
+  if (!success) {
+    QLOG_ERROR() << "Failed to open video in external player";
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
 void SystemComponent::runUserScript(QString script)
 {
   // We take the path the user supplied and run it through fileInfo and

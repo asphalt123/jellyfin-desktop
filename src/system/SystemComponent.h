@@ -55,6 +55,8 @@ public:
 
   Q_INVOKABLE void openExternalUrl(const QString& url);
 
+  Q_INVOKABLE void openVideoInExternalPlayer(const QString& url, const QVariantMap& metadata);
+
   Q_INVOKABLE void runUserScript(QString script);
 
   Q_INVOKABLE QString getNativeShellScript();

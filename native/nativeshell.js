@@ -13,7 +13,8 @@ const features = [
     "remotevideo",
     "displaymode",
     "screensaver",
-    "fileinput"
+    "fileinput",
+    "externalplayer"
 ];
 
 const getPlugins = () => {
@@ -58,6 +59,46 @@ window.NativeShell = {
 
     getPlugins() {
         return plugins;
+    },
+
+    openVideoInExternalPlayer(item) {
+        // Build the video stream URL with authentication
+        // This uses Jellyfin's API to get the proper playback URL
+        window.initCompleted.then(async () => {
+            try {
+                const apiClient = window.ApiClient;
+                if (!apiClient || !item) {
+                    console.error('[External Player] Missing API client or item');
+                    return;
+                }
+
+                // Get playback info to construct the URL
+                const playbackInfo = await apiClient.getPlaybackInfo(item.Id, {
+                    UserId: apiClient.getCurrentUserId(),
+                    MaxStreamingBitrate: 140000000,
+                    MediaSourceId: item.Id,
+                    DirectPlay: true
+                });
+
+                const mediaSource = playbackInfo.MediaSources[0];
+                if (!mediaSource) {
+                    console.error('[External Player] No media source available');
+                    return;
+                }
+
+                // Construct the direct play URL
+                const baseUrl = apiClient.serverAddress();
+                const url = `${baseUrl}/Videos/${item.Id}/stream?Static=true&MediaSourceId=${mediaSource.Id}&api_key=${apiClient.accessToken()}`;
+
+                console.log('[External Player] Opening:', url);
+                window.api.system.openVideoInExternalPlayer(url, {
+                    title: item.Name || '',
+                    type: item.Type || ''
+                });
+            } catch (error) {
+                console.error('[External Player] Error getting playback URL:', error);
+            }
+        });
     }
 };
 
@@ -575,7 +616,7 @@ async function showSettingsModal() {
 
 let lastFullscreenState = window.jmpInfo.settings.main.fullscreen;
 
-window.jmpInfo.settingsUpdate.push(function(section) {
+window.jmpInfo.settingsUpdate.push(function (section) {
     if (section === 'main') {
         const currentFullscreenState = window.jmpInfo.settings.main.fullscreen;
         if (currentFullscreenState !== lastFullscreenState) {
@@ -592,3 +633,61 @@ window.jmpInfo.settingsUpdate.push(function(section) {
         }
     }
 });
+
+// Inject "Play in External Player" menu item into Jellyfin's UI
+// This hooks into the Jellyfin web client's menu system
+(function () {
+    let menuInjected = false;
+
+    function injectExternalPlayerMenuItem() {
+        if (menuInjected) return;
+
+        // Wait for Jellyfin's itemHelper to be available
+        if (!window.itemHelper || typeof window.itemHelper.getCommands !== 'function') {
+            return;
+        }
+
+        console.log('[External Player] Injecting menu item into itemHelper');
+
+        // Save the original getCommands function
+        const originalGetCommands = window.itemHelper.getCommands;
+
+        // Override getCommands to add our custom menu item
+        window.itemHelper.getCommands = function (item, options) {
+            const commands = originalGetCommands.call(this, item, options);
+
+            // Only add for video items (Movie, Episode, or generic Video)
+            if (item && (item.Type === 'Episode' || item.Type === 'Movie' || item.Type === 'Video')) {
+                // Add our custom "Play in External Player" command
+                commands.push({
+                    name: 'Play in External Player',
+                    id: 'externalplayer',
+                    icon: 'launch',
+                    execute: function () {
+                        window.NativeShell.openVideoInExternalPlayer(item);
+                    }
+                });
+            }
+
+            return commands;
+        };
+
+        menuInjected = true;
+        console.log('[External Player] Menu item injection complete');
+    }
+
+    // Try to inject immediately if itemHelper is already available
+    if (document.readyState === 'complete') {
+        injectExternalPlayerMenuItem();
+    }
+
+    // Also try on DOM content loaded
+    document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(injectExternalPlayerMenuItem, 1000);
+    });
+
+    // And try on viewshow event (Jellyfin navigation)
+    window.addEventListener('viewshow', function () {
+        setTimeout(injectExternalPlayerMenuItem, 500);
+    });
+})();
